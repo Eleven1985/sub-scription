@@ -106,7 +106,7 @@ def main():
     # 更新节点延迟信息
     for i, node in enumerate(nodes_to_test):
         node['latency'] = latencies[i]
-        node['valid'] = latencies[i] > 0
+        node['valid'] = True if latencies[i] > 0 else False
     
     # 保存测试结果
     with open('tested_nodes.json', 'w') as f:
