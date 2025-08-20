@@ -2,48 +2,51 @@ name: Node Sync & Publish
 on:
   schedule:
     - cron: '0 */6 * * *'  # 每6小时运行
-  workflow_dispatch:
+  workflow_dispatch:        # 支持手动触发
 
 concurrency: 
   group: node-sync-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: write  # 确保提交权限
+
 jobs:
   process-nodes:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: 检出仓库
         uses: actions/checkout@v4
         with:
           path: 'v2ray-repo'
 
-      - name: Setup Python
+      - name: 设置Python环境
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
           cache: 'pip'
 
-      - name: Install dependencies
+      - name: 安装依赖
         run: |
           cd v2ray-repo
           pip install -r requirements.txt
 
-      - name: Run node processing
+      - name: 运行处理流程
         env:
-          SOURCE_URLS: ${{ secrets.SOURCE_URLS }}
+          SOURCE_URLS: ${{ secrets.SOURCE_URLS }}  # 从Secrets获取数据源
         run: |
           cd v2ray-repo
           python -m src.fetcher
           python -m src.processor
           python -m src.tester
           python -m src.filter
-          python -m src.generator  # 生成订阅和报告
+          python -m src.generator
 
-      - name: Commit and push changes
+      - name: 提交结果
         run: |
           cd v2ray-repo
           git config user.name "github-actions"
           git config user.email "actions@users.noreply.github.com"
           git add subscription.txt REPORT.md
-          git commit -m "Update: 5-star nodes $(date +'%Y%m%d-%H%M%S')"
+          git commit -m "更新5星节点: $(date +'%m%d%H%M')"
           git push
