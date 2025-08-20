@@ -18,8 +18,11 @@ def generate_subscription():
         logging.error("No valid nodes available for subscription")
         return False
     
-    # 选择延迟最低的50个节点
-    top_nodes = sorted(nodes, key=lambda x: x['latency'])[:50]
+    # 筛选5星节点（延迟<100ms）
+    five_star_nodes = [node for node in nodes if node.get('latency', 999) < 100]
+    
+    # 最多保留100个5星节点
+    top_nodes = five_star_nodes[:100]
     
     # 生成订阅内容
     subscription_content = "\n".join([node['raw'] for node in top_nodes])
@@ -27,51 +30,40 @@ def generate_subscription():
     # Base64编码
     encoded_content = base64.b64encode(subscription_content.encode()).decode()
     
-    # 写入文件
+    # 写入订阅文件
     with open('subscription.txt', 'w') as f:
         f.write(encoded_content)
     
-    logging.info(f"Generated subscription with {len(top_nodes)} valid nodes")
+    logging.info(f"Generated subscription with {len(top_nodes)} 5-star nodes")
     
-    # 生成节点质量报告
-    generate_report(nodes[:100])  # 报告最快的100个节点
+    # 生成节点质量报告（仅包含5星节点）
+    generate_report(top_nodes)
     
     return True
 
 def generate_report(nodes):
-    """生成节点质量报告"""
+    """生成仅包含5星节点的质量报告"""
     from datetime import datetime
     
-    report = "# V2Ray 节点质量报告\n\n"
+    report = "# V2Ray 节点质量报告（5星节点）\n\n"
     report += f"**更新时间**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
-    report += "| 协议 | 主机 | 端口 | 延迟(ms) | 质量评级 |\n"
-    report += "|------|------|------|----------|----------|\n"
+    report += f"**节点总数**: {len(nodes)}\n\n"
+    report += "| 序号 | 协议 | 主机 | 端口 | 延迟(ms) | 节点链接 |\n"
+    report += "|------|------|------|------|----------|----------|\n"
     
-    # 计算质量评级
-    min_latency = min(node['latency'] for node in nodes)
-    max_latency = max(node['latency'] for node in nodes)
-    
-    for node in nodes:
+    for i, node in enumerate(nodes, 1):
         latency = node['latency']
+        host = node['host']
+        port = node['port']
+        protocol = node['protocol']
+        raw_link = node['raw'][:60] + "..."  # 截取部分节点链接
         
-        # 质量评级算法
-        if latency < 100:
-            quality = "⭐️⭐️⭐️⭐️⭐️"
-        elif latency < 200:
-            quality = "⭐️⭐️⭐️⭐️"
-        elif latency < 300:
-            quality = "⭐️⭐️⭐️"
-        elif latency < 500:
-            quality = "⭐️⭐️"
-        else:
-            quality = "⭐️"
-        
-        report += f"| {node['protocol']} | {node['host']} | {node['port']} | {latency:.2f} | {quality} |\n"
+        report += f"| {i} | {protocol} | {host} | {port} | {latency:.2f} | `{raw_link}` |\n"
     
     with open('REPORT.md', 'w') as f:
         f.write(report)
     
-    logging.info("Generated node quality report")
+    logging.info(f"Generated quality report with {len(nodes)} 5-star nodes")
 
 if __name__ == "__main__":
     generate_subscription()
