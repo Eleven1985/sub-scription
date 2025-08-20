@@ -1,52 +1,51 @@
-name: Node Sync & Publish
+name: Premium Node Sync
 on:
-  schedule:
-    - cron: '0 */6 * * *'  # 每6小时运行
-  workflow_dispatch:        # 支持手动触发
-
-concurrency: 
-  group: node-sync-${{ github.ref }}
-  cancel-in-progress: true
+  schedule: 
+    - cron: '0 */6 * * *'  # 6小时更新
+  workflow_dispatch:
 
 permissions:
-  contents: write  # 确保提交权限
+  contents: write  # 关键权限！
 
 jobs:
-  process-nodes:
+  sync:
     runs-on: ubuntu-latest
     steps:
-      - name: 检出仓库
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          path: 'v2ray-repo'
 
-      - name: 设置Python环境
+      - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
           cache: 'pip'
 
-      - name: 安装依赖
-        run: |
-          cd v2ray-repo
-          pip install -r requirements.txt
+      - name: Install dependencies
+        run: pip install -r requirements.txt
 
-      - name: 运行处理流程
+      - name: Run processing
         env:
-          SOURCE_URLS: ${{ secrets.SOURCE_URLS }}  # 从Secrets获取数据源
+          SOURCE_URLS: ${{ secrets.SOURCE_URLS }}
         run: |
-          cd v2ray-repo
+          # 严格顺序执行
           python -m src.fetcher
           python -m src.processor
           python -m src.tester
           python -m src.filter
           python -m src.generator
 
-      - name: 提交结果
+      - name: Push results
         run: |
-          cd v2ray-repo
           git config user.name "github-actions"
           git config user.email "actions@users.noreply.github.com"
           git add subscription.txt REPORT.md
-          git commit -m "更新5星节点: $(date +'%m%d%H%M')"
+          git commit -m "Update: $(date +'%m%d-%H%M')"
           git push
+
+      - name: Notify success
+        if: success()
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TG_CHAT_ID }}
+          token: ${{ secrets.TG_TOKEN }}
+          message: "✅ 节点更新成功！订阅链接: https://raw.githubusercontent.com/$GITHUB_REPO/main/subscription.txt"
