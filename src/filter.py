@@ -1,36 +1,19 @@
-import json
-import logging
+import json, logging
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO)
 
 def filter_nodes():
-    """过滤节点并保留最快的100个节点"""
-    try:
-        with open('tested_nodes.json', 'r') as f:
-            nodes = json.load(f)
-    except FileNotFoundError:
-        logging.error("tested_nodes.json not found")
-        return []
+    with open('tested_nodes.json') as f:
+        nodes = json.load(f)
     
-    if not nodes:
-        logging.warning("No nodes to filter")
-        return []
+    # 关键修复：双重验证有效性
+    valid_nodes = [
+        node for node in nodes 
+        if node.get('valid') is True and node.get('latency', -1) > 0
+    ]
     
-    logging.info(f"Filtering {len(nodes)} nodes")
+    # 按延迟排序取最快100个
+    sorted_nodes = sorted(valid_nodes, key=lambda x: x['latency'])[:100]
     
-    # 按延迟排序
-    sorted_nodes = sorted(nodes, key=lambda x: x['latency'])
-    
-    # 保留最快的100个节点
-    top_nodes = sorted_nodes[:min(100, len(sorted_nodes))]
-    
-    logging.info(f"Filtered to {len(top_nodes)} fastest nodes")
-    
-    # 保存过滤后的节点
     with open('filtered_nodes.json', 'w') as f:
-        json.dump(top_nodes, f)
-    
-    return top_nodes
-
-if __name__ == "__main__":
-    filter_nodes()
+        json.dump(sorted_nodes, f)
