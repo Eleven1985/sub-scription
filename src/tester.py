@@ -1,40 +1,7 @@
-import socket
-import time
-import json
-import logging
-import concurrent.futures
-import os
-
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-def tcp_ping(host, port, timeout=3):
-    """TCP连接测试延迟"""
-    start = time.time()
-    try:
-        with socket.create_connection((host, int(port)), timeout=timeout):
-            delay = (time.time() - start) * 1000  # 毫秒
-            return delay
-    except Exception as e:
-        logging.debug(f"TCP ping failed for {host}:{port}: {str(e)}")
-        return float('inf')  # 表示不可达
+# ... 原有代码 ...
 
 def test_nodes():
-    try:
-        with open('processed_nodes.json', 'r') as f:
-            nodes = json.load(f)
-    except FileNotFoundError:
-        logging.error("processed_nodes.json not found")
-        return []
-    
-    if not nodes:
-        logging.warning("No nodes to test")
-        return []
-    
-    # 限制最大测试节点数（防止超时）
-    max_test_nodes = min(200, len(nodes))
-    nodes_to_test = nodes[:max_test_nodes]
-    
-    logging.info(f"Testing {len(nodes_to_test)} nodes")
+    # ... 原有代码 ...
     
     # 使用线程池并发测试
     with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
@@ -47,7 +14,14 @@ def test_nodes():
             ))
         
         for i, future in enumerate(concurrent.futures.as_completed(futures)):
-            nodes_to_test[i]['delay'] = future.result()
+            delay = future.result()
+            nodes_to_test[i]['delay'] = delay
+            
+            # 标记无效节点（延迟为-1）
+            if delay == -1:
+                nodes_to_test[i]['valid'] = False
+            else:
+                nodes_to_test[i]['valid'] = True
     
     # 按延迟排序
     tested_nodes = sorted(nodes_to_test, key=lambda x: x['delay'])
@@ -58,5 +32,4 @@ def test_nodes():
     
     return tested_nodes
 
-if __name__ == "__main__":
-    test_nodes()
+# ... 其余代码 ...
