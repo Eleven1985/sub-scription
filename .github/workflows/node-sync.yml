@@ -1,0 +1,38 @@
+name: Node Sync & Publish
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # 每6小时运行
+  workflow_dispatch:  # 支持手动触发
+
+jobs:
+  process-nodes:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        pip install requests numpy pandas
+
+    - name: Run node processing
+      env:
+        SOURCE_URLS: "https://github.com/mermeroo/V2RAY-FREE/raw/main/Base64/Sub1_base64.txt ..."  # 替换为所有用户提供的URL
+      run: |
+        cat << 'EOF' > node_processor.py
+        # Python脚本内容见下方
+        EOF
+        python node_processor.py
+
+    - name: Commit & Push
+      run: |
+        git config user.name "github-actions"
+        git config user.email "actions@users.noreply.github.com"
+        git add .
+        git commit -m "Auto-update top20 nodes $(date)"
+        git push
