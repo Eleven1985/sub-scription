@@ -15,7 +15,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          path: 'v2ray-repo'  # 明确指定检出路径
+          path: 'v2ray-repo'
 
       - name: Setup Python
         uses: actions/setup-python@v4
@@ -36,6 +36,7 @@ jobs:
           python -m src.fetcher
           python -m src.processor
           python -m src.tester
+          python -m src.filter  # 新增过滤步骤
           python -m src.generator
 
       - name: Commit and push changes
