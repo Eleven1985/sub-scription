@@ -1,27 +1,21 @@
-import base64, json, time, logging
-
-logging.basicConfig(level=logging.INFO)
-
 def generate():
     with open('filtered_nodes.json') as f:
         nodes = json.load(f)
     
-    # 只保留5星节点（延迟<100ms）
-    five_star_nodes = [node for node in nodes if node['latency'] < 100][:20]
+    # 动态配额：优先取5星(<100ms)，不足时补4星(<200ms)
+    five_star = [n for n in nodes if n['latency'] < 100]
+    four_star = [n for n in nodes if 100 <= n['latency'] < 200]
+    top_nodes = (five_star + four_star)[:100]  # 合并取前100
     
-    # 生成订阅
-    sub_content = "\n".join([n['raw'] for n in five_star_nodes])
-    encoded = base64.b64encode(sub_content.encode()).decode()
+    # 生成带评级的报告
+    report = "| 主机 | 端口 | 协议 | 延迟(ms) | 评级 |\n"
+    report += "|------|------|------|----------|------|\n"
+    for node in top_nodes:
+        rating = "⭐️⭐️⭐️⭐️⭐️" if node['latency'] < 100 else "⭐️⭐️⭐️⭐️"
+        report += f"| {node['host']} | {node['port']} | {node['protocol']} | {node['latency']:.2f} | {rating} |\n"
+    
+    # 写入订阅文件（仅包含原始节点数据）
+    raw_links = "\n".join([n['raw'] for n in top_nodes])
+    encoded = base64.b64encode(raw_links.encode()).decode()
     with open('subscription.txt', 'w') as f:
         f.write(encoded)
-    
-    # 生成带节点链接的报告
-    report = "| 序号 | 协议 | 主机 | 端口 | 延迟 | 节点片段 |\n|-----|------|------|-----|-------|--------|\n"
-    for i, node in enumerate(five_star_nodes, 1):
-        report += f"| {i} | {node['protocol']} | {node['host']} | {node['port']} | {node['latency']:.2f}ms | `{node['raw'][:30]}...` |\n"
-    
-    with open('REPORT.md', 'w') as f:
-        f.write(f"# 5星节点报告\n更新于: {time.ctime()}\n\n{report}")
-
-if __name__ == "__main__":
-    generate()
