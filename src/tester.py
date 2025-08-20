@@ -10,7 +10,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 TEST_URL = "http://www.gstatic.com/generate_204"  # Google的204响应服务
 TIMEOUT = 5  # 超时时间（秒）
-MAX_CONCURRENT = 20  # 最大并发数
+MAX_CONCURRENT = 50  # 最大并发数
 
 async def test_single_node(session, node):
     """测试单个节点的实际速度"""
@@ -94,7 +94,7 @@ def main():
         return []
     
     # 限制最大测试节点数
-    max_test_nodes = min(300, len(nodes))
+    max_test_nodes = min(500, len(nodes))
     nodes_to_test = nodes[:max_test_nodes]
     
     logging.info(f"Testing {len(nodes_to_test)} nodes")
