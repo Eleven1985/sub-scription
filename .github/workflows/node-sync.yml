@@ -1,18 +1,21 @@
-name: Premium Node Sync
+name: Node Sync & Publish
 on:
-  schedule: 
-    - cron: '0 */6 * * *'  # 6小时更新
+  schedule:
+    - cron: '0 */6 * * *'  # 每6小时运行
   workflow_dispatch:
 
-permissions:
-  contents: write  # 关键权限！
+concurrency: 
+  group: node-sync-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  sync:
+  process-nodes:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          path: 'v2ray-repo'
 
       - name: Setup Python
         uses: actions/setup-python@v4
@@ -21,31 +24,26 @@ jobs:
           cache: 'pip'
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          cd v2ray-repo
+          pip install -r requirements.txt
 
-      - name: Run processing
+      - name: Run node processing
         env:
           SOURCE_URLS: ${{ secrets.SOURCE_URLS }}
         run: |
-          # 严格顺序执行
+          cd v2ray-repo
           python -m src.fetcher
           python -m src.processor
           python -m src.tester
           python -m src.filter
           python -m src.generator
 
-      - name: Push results
+      - name: Commit and push changes
         run: |
+          cd v2ray-repo
           git config user.name "github-actions"
           git config user.email "actions@users.noreply.github.com"
           git add subscription.txt REPORT.md
-          git commit -m "Update: $(date +'%m%d-%H%M')"
+          git commit -m "Update: $(date +'%Y%m%d-%H%M%S')"
           git push
-
-      - name: Notify success
-        if: success()
-        uses: appleboy/telegram-action@master
-        with:
-          to: ${{ secrets.TG_CHAT_ID }}
-          token: ${{ secrets.TG_TOKEN }}
-          message: "✅ 节点更新成功！订阅链接: https://raw.githubusercontent.com/$GITHUB_REPO/main/subscription.txt"
