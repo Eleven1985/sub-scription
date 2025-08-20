@@ -1,87 +1,24 @@
+import socket
+import time
 import json
 import logging
-import asyncio
-import aiohttp
-import time
-import socket
-from urllib.parse import urlparse
+import concurrent.futures
+import os
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-TEST_URL = "http://www.gstatic.com/generate_204"  # Google的204响应服务
-TIMEOUT = 5  # 超时时间（秒）
-MAX_CONCURRENT = 20  # 最大并发数
-
-async def test_single_node(session, node):
-    """测试单个节点的实际速度"""
+def tcp_ping(host, port, timeout=3):
+    """TCP连接测试延迟"""
+    start = time.time()
     try:
-        # 解析节点信息
-        host = node['host']
-        port = int(node['port'])
-        protocol = node['protocol']
-        
-        # 创建代理连接
-        connector = None
-        proxy_url = None
-        
-        if protocol in ['http', 'https']:
-            proxy_url = f"http://{host}:{port}"
-        elif protocol == 'socks5':
-            proxy_url = f"socks5://{host}:{port}"
-        else:
-            # 对于其他协议，使用TCP连接测试
-            return await tcp_ping(host, port)
-        
-        # 使用代理测试实际速度
-        start_time = time.time()
-        async with session.get(TEST_URL, proxy=proxy_url, timeout=TIMEOUT) as response:
-            if response.status == 204:
-                latency = (time.time() - start_time) * 1000  # 毫秒
-                return latency
-            else:
-                logging.warning(f"Unexpected status {response.status} for {host}:{port}")
-                return -1
-    except asyncio.TimeoutError:
-        logging.debug(f"Timeout for {host}:{port}")
-        return -1
+        with socket.create_connection((host, int(port)), timeout=timeout):
+            delay = (time.time() - start) * 1000  # 毫秒
+            return delay
     except Exception as e:
-        logging.debug(f"Error testing {host}:{port}: {str(e)}")
-        return -1
+        logging.debug(f"TCP ping failed for {host}:{port}: {str(e)}")
+        return float('inf')  # 表示不可达
 
-async def tcp_ping(host, port):
-    """TCP连接测试"""
-    try:
-        start_time = time.time()
-        reader, writer = await asyncio.wait_for(
-            asyncio.open_connection(host, port),
-            timeout=TIMEOUT
-        )
-        latency = (time.time() - start_time) * 1000
-        writer.close()
-        await writer.wait_closed()
-        return latency
-    except:
-        return -1
-
-async def test_nodes(nodes):
-    """并发测试所有节点"""
-    results = []
-    
-    # 创建HTTP会话
-    async with aiohttp.ClientSession() as session:
-        tasks = []
-        for node in nodes:
-            tasks.append(test_single_node(session, node))
-        
-        # 分批测试，避免并发过高
-        for i in range(0, len(tasks), MAX_CONCURRENT):
-            batch = tasks[i:i+MAX_CONCURRENT]
-            batch_results = await asyncio.gather(*batch)
-            results.extend(batch_results)
-    
-    return results
-
-def main():
+def test_nodes():
     try:
         with open('processed_nodes.json', 'r') as f:
             nodes = json.load(f)
@@ -93,27 +30,33 @@ def main():
         logging.warning("No nodes to test")
         return []
     
-    # 限制最大测试节点数
-    max_test_nodes = min(300, len(nodes))
+    # 限制最大测试节点数（防止超时）
+    max_test_nodes = min(200, len(nodes))
     nodes_to_test = nodes[:max_test_nodes]
     
     logging.info(f"Testing {len(nodes_to_test)} nodes")
     
-    # 运行异步测试
-    loop = asyncio.get_event_loop()
-    latencies = loop.run_until_complete(test_nodes(nodes_to_test))
+    # 使用线程池并发测试
+    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
+        futures = []
+        for node in nodes_to_test:
+            futures.append(executor.submit(
+                tcp_ping, 
+                node['host'], 
+                node['port']
+            ))
+        
+        for i, future in enumerate(concurrent.futures.as_completed(futures)):
+            nodes_to_test[i]['delay'] = future.result()
     
-    # 更新节点延迟信息
-    for i, node in enumerate(nodes_to_test):
-        node['latency'] = latencies[i]
-        node['valid'] = latencies[i] > 0
+    # 按延迟排序
+    tested_nodes = sorted(nodes_to_test, key=lambda x: x['delay'])
     
     # 保存测试结果
     with open('tested_nodes.json', 'w') as f:
-        json.dump(nodes_to_test, f)
+        json.dump(tested_nodes, f)
     
-    logging.info(f"Completed testing {len(nodes_to_test)} nodes")
-    return nodes_to_test
+    return tested_nodes
 
 if __name__ == "__main__":
-    main()
+    test_nodes()
