@@ -4,37 +4,45 @@ on:
     - cron: '0 */6 * * *'  # 每6小时运行
   workflow_dispatch:
 
-permissions:
-  contents: write  # 确保写入权限[3](@ref)
+concurrency: 
+  group: node-sync-${{ github.ref }}  # 防止并发冲突
+  cancel-in-progress: true
 
 jobs:
   process-nodes:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Setup Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'  # 启用依赖缓存
 
-    - name: Install dependencies
-      run: pip install aiohttp numpy pandas  # 使用异步HTTP提升效率[6](@ref)
+      - name: Install dependencies
+        run: pip install -r requirements.txt
 
-    - name: Run processing
-      env:
-        SOURCE_URLS: ${{ secrets.SOURCE_URLS }}
-      run: |
-        # 模块化脚本组织
-        python src/fetch_nodes.py
-        python src/process_nodes.py
-        python src/generate_sub.py
+      - name: Run processing
+        env:
+          SOURCE_URLS: ${{ secrets.SOURCE_URLS }}
+        run: |
+          python -m src.fetcher
+          python -m src.processor
+          python -m src.tester
+          python -m src.generator
 
-    - name: Commit & Push
-      run: |
-        git config user.name "github-actions"
-        git config user.email "actions@users.noreply.github.com"
-        git add subscription.txt
-        git commit -m "Auto-update: $(date +'%Y%m%d-%H%M%S')"
-        git push
+      - name: Upload subscription
+        uses: actions/upload-artifact@v4
+        with:
+          name: subscription
+          path: subscription.txt
+
+      - name: Commit & Push
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@users.noreply.github.com"
+          git add subscription.txt
+          git commit -m "Update: $(date +'%Y%m%d-%H%M%S')"
+          git push
