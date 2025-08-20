@@ -1,64 +1,33 @@
-import re
-import logging
-import json
+import re, json, logging
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO)
+PROTOCOL_PATTERNS = {
+    'vmess': r'@([\w\.-]+):(\d+)\?',
+    'vless': r'@([\w\.-]+):(\d+)[#?]',
+    'trojan': r'@([\w\.-]+):(\d+)\?',
+    'ss': r'@([\w\.-]+):(\d+)[#?]'
+}
 
 def extract_node_info(node):
-    """解析各种协议节点信息"""
-    protocols = {
-        'vmess': r'vmess://[^@]+@([^:]+):(\d+)\?',
-        'vless': r'vless://[^@]+@([^:]+):(\d+)[#?]',
-        'trojan': r'trojan://[^@]+@([^:]+):(\d+)\?',
-        'ss': r'ss://[^@]+@([^:]+):(\d+)[#?]',
-        'tuic': r'tuic://[^@]+@([^:]+):(\d+)\?',
-        'hysteria': r'hysteria://[^@]+@([^:]+):(\d+)\?'
-    }
-    
-    for proto, pattern in protocols.items():
-        match = re.search(pattern, node)
-        if match:
-            host = match.group(1)
-            port = match.group(2)
+    for proto, pattern in PROTOCOL_PATTERNS.items():
+        if match := re.search(pattern, node):
             return {
                 'protocol': proto,
-                'host': host,
-                'port': port,
+                'host': match.group(1),
+                'port': match.group(2),
                 'raw': node,
-                'key': f"{proto}://{host}:{port}"
+                'key': f"{proto}://{match.group(1)}:{match.group(2)}"
             }
-    
-    logging.warning(f"Unrecognized node format: {node[:50]}...")
     return None
 
-def process_nodes():
-    try:
-        with open('raw_nodes.txt', 'r') as f:
-            raw_nodes = [line.strip() for line in f.readlines() if line.strip()]
-    except FileNotFoundError:
-        logging.error("raw_nodes.txt not found")
-        return []
+def process():
+    with open('raw_nodes.txt') as f:
+        nodes = [n.strip() for n in f if n.strip()]
     
-    if not raw_nodes:
-        logging.warning("No nodes found in raw_nodes.txt")
-        return []
+    unique_nodes = {}
+    for node in nodes:
+        if info := extract_node_info(node):
+            unique_nodes[info['key']] = info
     
-    processed_nodes = []
-    unique_keys = set()
-    
-    for node in raw_nodes:
-        info = extract_node_info(node)
-        if info and info['key'] not in unique_keys:
-            unique_keys.add(info['key'])
-            processed_nodes.append(info)
-    
-    logging.info(f"Processed {len(processed_nodes)} unique nodes")
-    
-    # 保存处理后的节点信息
     with open('processed_nodes.json', 'w') as f:
-        json.dump(processed_nodes, f)
-    
-    return processed_nodes
-
-if __name__ == "__main__":
-    process_nodes()
+        json.dump(list(unique_nodes.values()), f)
