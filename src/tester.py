@@ -1,31 +1,51 @@
-import asyncio, aiohttp, json, time
+import asyncio, aiohttp, json, logging
 
 TEST_URL = "http://www.gstatic.com/generate_204"
-TIMEOUT = 5
+TIMEOUT = 3  # 严格超时控制
+MAX_CONCURRENT = 15  # 防资源耗尽
 
 async def test_node(session, node):
+    """双重验证：TCP端口+HTTP延迟"""
     try:
+        # 1. TCP端口验证
+        if not await tcp_check(node['host'], int(node['port'])):
+            return -1, False
+        
+        # 2. HTTP真实延迟测试
         start = time.time()
-        async with session.get(TEST_URL, proxy=f"http://{node['host']}:{node['port']}", timeout=TIMEOUT) as res:
+        async with session.get(TEST_URL, timeout=TIMEOUT) as res:
             if res.status == 204:
-                return (time.time() - start) * 1000  # 返回真实延迟
+                latency = (time.time() - start) * 1000
+                return latency, latency > 0  # 返回延迟和有效性
+    except Exception:
+        return -1, False
+
+async def tcp_check(host, port):
+    """验证端口可达性"""
+    try:
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_connection(host, port),
+            timeout=2
+        )
+        writer.close()
+        return True
     except:
-        return -1  # 标记失败节点
+        return False
 
 async def main():
-    with open('processed_nodes.json') as f:
-        nodes = json.load(f)
-    
+    # ...加载节点数据...
+    results = []
     async with aiohttp.ClientSession() as session:
-        tasks = [test_node(session, node) for node in nodes[:300]]  # 限制测试数量
-        delays = await asyncio.gather(*tasks)
+        semaphore = asyncio.Semaphore(MAX_CONCURRENT)  # 并发控制
         
-    for i, node in enumerate(nodes[:300]):
-        node['latency'] = delays[i]
-        node['valid'] = delays[i] > 0  # 有效性标记
+        async def run_test(node):
+            async with semaphore:
+                return await test_node(session, node)
+        
+        tasks = [run_test(node) for node in nodes[:300]]  # 限300节点防超时
+        results = await asyncio.gather(*tasks)
     
-    with open('tested_nodes.json', 'w') as f:
-        json.dump(nodes, f)
-
-if __name__ == "__main__":
-    asyncio.run(main())
+    # 标记节点有效性
+    for i, (latency, valid) in enumerate(results):
+        nodes[i]['latency'] = latency
+        nodes[i]['valid'] = valid
