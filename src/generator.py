@@ -7,21 +7,22 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 def generate_subscription():
     try:
-        with open('tested_nodes.json', 'r') as f:
+        # 使用过滤后的节点
+        with open('filtered_nodes.json', 'r') as f:
             nodes = json.load(f)
     except FileNotFoundError:
-        logging.error("tested_nodes.json not found")
+        logging.error("filtered_nodes.json not found")
         return False
     
     if not nodes:
-        logging.error("No nodes available for subscription")
+        logging.error("No valid nodes available for subscription")
         return False
     
     # 选择延迟最低的20个节点
-    top_nodes = [node['raw'] for node in nodes[:20]]
+    top_nodes = sorted(nodes, key=lambda x: x['delay'])[:20]
     
     # 生成订阅内容
-    subscription_content = "\n".join(top_nodes)
+    subscription_content = "\n".join([node['raw'] for node in top_nodes])
     
     # Base64编码
     encoded_content = base64.b64encode(subscription_content.encode()).decode()
@@ -30,8 +31,27 @@ def generate_subscription():
     with open('subscription.txt', 'w') as f:
         f.write(encoded_content)
     
-    logging.info(f"Generated subscription with {len(top_nodes)} nodes")
+    logging.info(f"Generated subscription with {len(top_nodes)} valid nodes")
+    
+    # 生成节点质量报告
+    generate_report(top_nodes)
+    
     return True
+
+def generate_report(nodes):
+    """生成节点质量报告"""
+    report = "# V2Ray 节点质量报告\n\n"
+    report += f"**更新时间**: {time.strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+    report += "| 协议 | 主机 | 端口 | 延迟(ms) |\n"
+    report += "|------|------|------|----------|\n"
+    
+    for node in nodes:
+        report += f"| {node['protocol']} | {node['host']} | {node['port']} | {node['delay']:.2f} |\n"
+    
+    with open('REPORT.md', 'w') as f:
+        f.write(report)
+    
+    logging.info("Generated node quality report")
 
 if __name__ == "__main__":
     generate_subscription()
