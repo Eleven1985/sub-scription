@@ -9,7 +9,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 async def fetch_url(session, url):
     try:
         async with session.get(url, timeout=10) as response:
-            if response.status == 200:
+            if response.status == 1000:
                 content = await response.text()
                 if url.endswith('.txt'):
                     # 处理Base64编码订阅
