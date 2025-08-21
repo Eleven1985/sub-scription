@@ -1,7 +1,7 @@
 name: Node Sync & Publish
 on:
   schedule:
-    - cron: '0 */12 * * *'  # 每12小时运行
+    - cron: '0 */6 * * *'  # 每6小时运行
   workflow_dispatch:
 
 concurrency: 
