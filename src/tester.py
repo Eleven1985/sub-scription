@@ -94,7 +94,7 @@ def main():
         return []
     
     # 限制最大测试节点数
-    max_test_nodes = min(500, len(nodes))
+    max_test_nodes = min(1000, len(nodes))
     nodes_to_test = nodes[:max_test_nodes]
     
     logging.info(f"Testing {len(nodes_to_test)} nodes")
