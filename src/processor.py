@@ -28,7 +28,7 @@ def extract_node_info(node):
                 'key': f"{proto}://{host}:{port}"
             }
     
-    logging.warning(f"Unrecognized node format: {node[:20]}...")
+    logging.warning(f"Unrecognized node format: {node[:50]}...")
     return None
 
 def process_nodes():
