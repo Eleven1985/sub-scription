@@ -18,8 +18,8 @@ def generate_subscription():
         logging.error("No valid nodes available for subscription")
         return False
     
-    # 选择延迟最低的50个节点
-    top_nodes = sorted(nodes, key=lambda x: x['latency'])[:50]
+    # 选择延迟最低的100个节点
+    top_nodes = sorted(nodes, key=lambda x: x['latency'])[:100]
     
     # 生成订阅内容
     subscription_content = "\n".join([node['raw'] for node in top_nodes])
