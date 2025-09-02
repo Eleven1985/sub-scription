@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 TEST_URL = "http://www.gstatic.com/generate_204"  # Google的204响应服务
-TIMEOUT = 5  # 超时时间（秒）
+TIMEOUT = 10  # 超时时间（秒）
 MAX_CONCURRENT = 100  # 最大并发数
 
 async def test_single_node(session, node):
@@ -36,7 +36,7 @@ async def test_single_node(session, node):
         start_time = time.time()
         async with session.get(TEST_URL, proxy=proxy_url, timeout=TIMEOUT) as response:
             if response.status == 204:
-                latency = (time.time() - start_time) * 1000  # 毫秒
+                latency = (time.time() - start_time) * 2000  # 毫秒
                 return latency
             else:
                 logging.warning(f"Unexpected status {response.status} for {host}:{port}")
