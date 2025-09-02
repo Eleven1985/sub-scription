@@ -68,7 +68,7 @@ def generate_report(nodes):
         
         report += f"| {node['protocol']} | {node['host']} | {node['port']} | {latency:.2f} | {quality} |\n"
     
-    with open('REPORT.md', 'w') as f:
+    with open('https://github.com/Eleven1985/sub-scription/edit/main/README.md', 'w') as f:
         f.write(report)
     
     logging.info("Generated node quality report")
