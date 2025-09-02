@@ -56,7 +56,7 @@ async def tcp_ping(host, port):
             asyncio.open_connection(host, port),
             timeout=TIMEOUT
         )
-        latency = (time.time() - start_time) * 1000
+        latency = (time.time() - start_time) * 2000
         writer.close()
         await writer.wait_closed()
         return latency
@@ -94,7 +94,7 @@ def main():
         return []
     
     # 限制最大测试节点数
-    max_test_nodes = min(1000, len(nodes))
+    max_test_nodes = min(2000, len(nodes))
     nodes_to_test = nodes[:max_test_nodes]
     
     logging.info(f"Testing {len(nodes_to_test)} nodes")
